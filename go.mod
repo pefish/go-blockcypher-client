@@ -12,9 +12,10 @@ require (
 	github.com/fatih/structs v1.1.0 // indirect
 	github.com/google/uuid v1.1.2 // indirect
 	github.com/mitchellh/mapstructure v1.1.2 // indirect
+	github.com/pefish/go-decimal v0.2.8 // indirect
 	github.com/pefish/go-format v0.1.3 // indirect
 	github.com/pefish/go-reflect v0.2.2 // indirect
-	github.com/pkg/errors v0.8.1 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	go.uber.org/atomic v1.5.0 // indirect
 	go.uber.org/multierr v1.3.0 // indirect
 	go.uber.org/tools v0.0.0-20190618225709-2cfd321de3ee // indirect

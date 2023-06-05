@@ -2,6 +2,7 @@ package blockcypher_client
 
 import (
 	"fmt"
+	go_decimal "github.com/pefish/go-decimal"
 	go_http "github.com/pefish/go-http"
 	go_logger "github.com/pefish/go-logger"
 	"time"
@@ -121,4 +122,24 @@ func (bc *BlockcypherClient) GetTransaction(hash string) (*GetTransactionResult,
 		return nil, fmt.Errorf(result.Error)
 	}
 	return &result, nil
+}
+
+func (bc *BlockcypherClient) GetBtcBalance(address string) (string, error) {
+	var result struct {
+		Balance uint64 `json:"balance"`
+		Error   string `json:"error"`
+	}
+	_, err := go_http.NewHttpRequester(go_http.WithTimeout(bc.timeout), go_http.WithLogger(bc.logger)).GetForStruct(go_http.RequestParam{
+		Url: fmt.Sprintf("%s/addrs/%s/balance", bc.baseUrl, address),
+		Params: map[string]interface{}{
+			"token": bc.key,
+		},
+	}, &result)
+	if err != nil {
+		return "", err
+	}
+	if result.Error != "" {
+		return "", fmt.Errorf(result.Error)
+	}
+	return go_decimal.Decimal.Start(result.Balance).MustUnShiftedBy(8).EndForString(), nil
 }
