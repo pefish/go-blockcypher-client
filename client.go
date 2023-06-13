@@ -18,13 +18,12 @@ type BlockcypherClient struct {
 func NewBlockcypherClient(
 	logger go_logger.InterfaceLogger,
 	httpTimeout time.Duration,
-	baseUrl string,
 	key string,
 ) *BlockcypherClient {
 	return &BlockcypherClient{
 		timeout: httpTimeout,
 		logger:  logger,
-		baseUrl: baseUrl,
+		baseUrl: "https://api.blockcypher.com/v1/btc/main",
 		key:     key,
 	}
 }
@@ -142,4 +141,71 @@ func (bc *BlockcypherClient) GetBtcBalance(address string) (string, error) {
 		return "", fmt.Errorf(result.Error)
 	}
 	return go_decimal.Decimal.Start(result.Balance).MustUnShiftedBy(8).EndForString(), nil
+}
+
+type ListUnspentResult struct {
+	TxHash        string `json:"tx_hash"`
+	TxOutputN     uint64 `json:"tx_output_n"`
+	Value         uint64 `json:"value"`
+	Confirmations uint64 `json:"confirmations"`
+	BlockHeight   uint64 `json:"block_height"`
+}
+
+func (bc *BlockcypherClient) ListUnspent(address string) ([]ListUnspentResult, error) {
+	results := make([]ListUnspentResult, 0)
+
+	var httpResult struct {
+		TxRefs  []ListUnspentResult `json:"txrefs"`
+		HasMore bool                `json:"hasMore"`
+		Error   string              `json:"error"`
+	}
+	_, err := go_http.NewHttpRequester(go_http.WithTimeout(bc.timeout), go_http.WithLogger(bc.logger)).GetForStruct(go_http.RequestParam{
+		Url: fmt.Sprintf("%s/addrs/%s", bc.baseUrl, address),
+		Params: map[string]interface{}{
+			"after":       0,
+			"unspentOnly": true,
+			"token":       bc.key,
+		},
+	}, &httpResult)
+	if err != nil {
+		return nil, err
+	}
+	if httpResult.Error != "" {
+		return nil, fmt.Errorf(httpResult.Error)
+	}
+
+	results = append(results, httpResult.TxRefs...)
+	if !httpResult.HasMore {
+		return results, nil
+	}
+
+	before := httpResult.TxRefs[len(httpResult.TxRefs)-1].BlockHeight
+	for {
+		var httpResult struct {
+			TxRefs  []ListUnspentResult `json:"txrefs"`
+			HasMore bool                `json:"hasMore"`
+			Error   string              `json:"error"`
+		}
+		_, err := go_http.NewHttpRequester(go_http.WithTimeout(bc.timeout), go_http.WithLogger(bc.logger)).GetForStruct(go_http.RequestParam{
+			Url: fmt.Sprintf("%s/addrs/%s", bc.baseUrl, address),
+			Params: map[string]interface{}{
+				"after":       0,
+				"unspentOnly": true,
+				"before":      before,
+				"token":       bc.key,
+			},
+		}, &httpResult)
+		if err != nil {
+			return nil, err
+		}
+		if httpResult.Error != "" {
+			return nil, fmt.Errorf(httpResult.Error)
+		}
+		results = append(results, httpResult.TxRefs...)
+		if !httpResult.HasMore {
+			break
+		}
+		before = httpResult.TxRefs[len(httpResult.TxRefs)-1].BlockHeight
+	}
+	return results, nil
 }
