@@ -44,7 +44,12 @@ type ListTransactionsResult struct {
 	Confirmations uint64 `json:"confirmations"`
 }
 
-func (bc *BlockcypherClient) ListTransactions(index uint64, address string) ([]ListTransactionsResult, error) {
+func (bc *BlockcypherClient) ListTransactions(index uint64, address string, isIncludePending bool) ([]ListTransactionsResult, error) {
+	confirmations := 0
+	if !isIncludePending {
+		confirmations = 1
+	}
+
 	results := make([]ListTransactionsResult, 0)
 
 	var httpResult struct {
@@ -55,8 +60,9 @@ func (bc *BlockcypherClient) ListTransactions(index uint64, address string) ([]L
 	_, err := go_http.NewHttpRequester(go_http.WithTimeout(bc.timeout), go_http.WithLogger(bc.logger)).GetForStruct(go_http.RequestParam{
 		Url: fmt.Sprintf("%s/addrs/%s/full", bc.baseUrl, address),
 		Params: map[string]interface{}{
-			"after": index,
-			"token": bc.key,
+			"after":         index,
+			"token":         bc.key,
+			"confirmations": confirmations,
 		},
 	}, &httpResult)
 	if err != nil {
@@ -81,9 +87,10 @@ func (bc *BlockcypherClient) ListTransactions(index uint64, address string) ([]L
 		_, err := go_http.NewHttpRequester(go_http.WithTimeout(bc.timeout), go_http.WithLogger(bc.logger)).GetForStruct(go_http.RequestParam{
 			Url: fmt.Sprintf("%s/addrs/%s/full", bc.baseUrl, address),
 			Params: map[string]interface{}{
-				"after":  index,
-				"before": before,
-				"token":  bc.key,
+				"after":         index,
+				"before":        before,
+				"token":         bc.key,
+				"confirmations": confirmations,
 			},
 		}, &httpResult)
 		if err != nil {
